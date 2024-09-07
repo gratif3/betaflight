@@ -672,29 +672,29 @@ FAST_CODE void processRcCommand(void)
         // Apply rates for pitch and roll
         preProcessRcCommandAxis(FD_ROLL); // normalize rcCommand [-1.0, 1.0], store in rcDeflection, rcDeflectionAbs, maxRcDeflectionAbs
         preProcessRcCommandAxis(FD_PITCH); // normalize rcCommand [-1.0, 1.0], store in rcDeflection, rcDeflectionAbs, maxRcDeflectionAbs
-        if (getCurrentControlRateProfileIndex() == 0) { // only do combined expo if profile 0 for now (testing)
-            /* new - apply rates and expo for pitch and roll together for consistent feel in all directions */
-            float r = rcDeflection[FD_ROLL];
-            float p = rcDeflection[FD_PITCH];
-            float length = sqrtf(r*r + p*p);
-            if (length > 1.0f) { // constrain to circular area of max length 1.0 in case of square RC control
-                r /= length;
-                p /= length;
-                length = 1.0f;
-            }
-            float lengthExpo = applyRates(FD_PITCH, length, length); // for now use FD_PITCH rates info for both roll & pitch when combined like this, could adjust to interpolate between pitch and roll rates depending on the vector angle
-            if (length < 0.00001f) { // ensure no divide by zero, rc stick resolution is limited to 1/1000 due to PWM etc, though it is then low passed, so 1/100,000 as a limit is plenty
-                angleRateRoll = 0;
-                angleRatePitch = 0;
-            } else {
-                angleRateRoll = (r / length) * lengthExpo;
-                angleRatePitch = (p / length) * lengthExpo;
-            }
-        } else {
-            /* traditional independent pitch and roll */
-            angleRateRoll = applyRates(FD_ROLL, rcDeflection[FD_ROLL], rcDeflectionAbs[FD_ROLL]);
-            angleRatePitch = applyRates(FD_PITCH, rcDeflection[FD_PITCH], rcDeflectionAbs[FD_PITCH]);
+#ifdef USE_VECTOR_EXPO
+        /* vector expo - apply rates and expo for pitch and roll together for consistent feel in all directions */
+        float r = rcDeflection[FD_ROLL];
+        float p = rcDeflection[FD_PITCH];
+        float length = sqrtf(r*r + p*p);
+        if (length > 1.0f) { // constrain to circular area of max length 1.0 in case of square RC control
+            r /= length;
+            p /= length;
+            length = 1.0f;
         }
+        float lengthExpo = applyRates(FD_PITCH, length, length); // for now use FD_PITCH rates info for both roll & pitch when combined like this, could adjust to interpolate between pitch and roll rates depending on the vector angle
+        if (length < 0.00001f) { // ensure no divide by zero, rc stick resolution is limited to 1/1000 due to PWM etc, though it is then low passed, so 1/100,000 as a limit is plenty
+            angleRateRoll = 0;
+            angleRatePitch = 0;
+        } else {
+            angleRateRoll = (r / length) * lengthExpo;
+            angleRatePitch = (p / length) * lengthExpo;
+        }
+#else
+        /* traditional independent pitch and roll */
+        angleRateRoll = applyRates(FD_ROLL, rcDeflection[FD_ROLL], rcDeflectionAbs[FD_ROLL]);
+        angleRatePitch = applyRates(FD_PITCH, rcDeflection[FD_PITCH], rcDeflectionAbs[FD_PITCH]);
+#endif
 
         // Write all axes to rawSetpoint after constraining values
         writeSetpointAxis(FD_ROLL, angleRateRoll);
